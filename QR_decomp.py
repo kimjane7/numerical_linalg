@@ -4,42 +4,80 @@ from scipy.linalg import eigvalsh, expm
 
 class QR_Decomposition:
 
+
 	def __init__(self, A):
 
 		self.m, self.n = A.shape
 		self.A = A
-		self.Q = np.zeros_like(A)
-		self.R = np.zeros((self.n,self.n))
+		self.tolerance = 1E-10
 
-		self.GramSchmidt_classical()
+		self.classical_GramSchmidt()
+		self.modified_GramSchmidt()
 
 
-	def GramSchmidt_classical(self):
+	def classical_GramSchmidt(self):
+
+		self.Q = np.zeros((self.m,self.n),dtype=complex)
+		self.R = np.zeros((self.n,self.n),dtype=complex)
 
 		for j in range(self.n):
 
-			# take jth column of A (does this make copy?)
-			print(self.A[:,1])
-			vj = self.A[:,j]
+			# take jth column of A
+			vj = self.A[:,j].copy()
 
 			# subtract components parallel to previous (j-1) unit vectors      
 			for i in range(j-1):
 
-				self.R[i,j] = np.dot(np.conjugate(self.Q[:,i]),self.A[:,j])
-				vj = vj - self.R[i,j]*self.A[:,j]
+				self.R[i,j] = np.vdot(self.Q[:,i],self.A[:,j])
+				vj = vj - self.R[i,j]*self.Q[:,i]
 
-			self.R[j,j] = np.dot(np.conjugate(vj),vj)
-			self.Q[:,j] = vj/self.R[j,j]
+			# normalization
+			self.R[j,j] = np.vdot(vj,vj)
 
+			# store unit vectors
+			if self.R[j,j] > self.tolerance:
+				self.Q[:,j] = vj/self.R[j,j]
 
-
-
-
-
-	#def GramSchmidt_modified(self):
-
-
-	#def Householder(self):
+		self.display_result()
 
 
-	#def compare(self):
+	def modified_GramSchmidt(self):
+
+		self.Q = np.zeros((self.m,self.n),dtype=complex)
+		self.R = np.zeros((self.n,self.n),dtype=complex)
+		V = self.A.copy()
+
+		for i in range(self.n):
+
+			self.R[i,i] = np.vdot(V[:,i],V[:,i])
+
+			if self.R[i,i] > self.tolerance:
+				self.Q[:,i] = V[:,i]/self.R[i,i]
+
+			for j in range(i+1, self.n):
+				self.R[i,j] = np.vdot(self.Q[:,i],V[:,j])
+				V[:,j] = V[:,j]-self.R[i,j]*self.Q[:,i]
+
+		self.display_result()
+
+
+	def Householder(self):
+
+		return 0
+
+
+	def display_result(self):
+
+		names = ["A","Q","R","A-QR"]
+		matrices = [self.A,self.Q,self.R,self.A-np.dot(self.Q,self.R)]
+		dims = [self.m,self.m,self.n,self.m]
+		widths = [6,6,6,9]
+
+		np.set_printoptions(formatter={'complexfloat': '{:^5.3f}'.format})
+
+		for n in range(len(names)):
+			print("\n", names[n]," = ",matrices[n][0,:])
+			for i in range(1,dims[n]):
+				print(" "*widths[n],matrices[n][i,:])
+
+		print("")
