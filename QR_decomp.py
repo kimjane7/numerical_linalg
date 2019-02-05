@@ -9,10 +9,11 @@ class QR_Decomposition:
 
 		self.m, self.n = A.shape
 		self.A = A
-		self.tolerance = 1E-10
+		self.tolerance = 1E-30
 
 		self.classical_GramSchmidt()
 		self.modified_GramSchmidt()
+		self.Householder()
 
 
 	def classical_GramSchmidt(self):
@@ -55,7 +56,7 @@ class QR_Decomposition:
 				self.Q[:,i] = V[:,i]/self.R[i,i]
 
 			for j in range(i+1, self.n):
-				self.R[i,j] = np.vdot(self.Q[:,i],V[:,j])
+				self.R[i,j] = np.vdot(V[:,i],self.Q[:,j])
 				V[:,j] = V[:,j]-self.R[i,j]*self.Q[:,i]
 
 		self.display_result()
@@ -63,7 +64,13 @@ class QR_Decomposition:
 
 	def Householder(self):
 
-		return 0
+		V = np.zeros((self.m,self.n),dtype=complex)
+
+		for k in range(self.n):
+			X = self.A[k:self.m,k]
+
+
+		
 
 
 	def display_result(self):
@@ -73,7 +80,7 @@ class QR_Decomposition:
 		dims = [self.m,self.m,self.n,self.m]
 		widths = [6,6,6,9]
 
-		np.set_printoptions(formatter={'complexfloat': '{:^5.3f}'.format})
+		np.set_printoptions(formatter={'complexfloat':lambda x:('{:>5.2f}{:<+5.2f}i'.format(x.real,x.imag) if x.imag > 0.0 else '{:^11.2f}'.format(x.real))})
 
 		for n in range(len(names)):
 			print("\n", names[n]," = ",matrices[n][0,:])
