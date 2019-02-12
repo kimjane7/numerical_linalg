@@ -96,7 +96,7 @@ class QR_Decomposition:
 
 	def check_Q_orthogonal(self,tolerance):
 
-		np.set_printoptions(formatter={'complexfloat':lambda x:('{:>7.5f}{:>+7.5f}i'.format(x.real,x.imag) if (x.real != 0.0 and x.imag != 0.0) else ('    {:>7.5f}    '.format(x.real) if x.imag == 0.0 else'     {:>7.5f}i   '.format(x.imag)))})
+		np.set_printoptions(formatter={'complexfloat':lambda x:('{:>10.8f}{:>+10.8f}i'.format(x.real,x.imag) if (x.real != 0.0 and x.imag != 0.0) else ('    {:>10.8f}    '.format(x.real) if x.imag == 0.0 else'     {:>10.8f}i   '.format(x.imag)))})
 
 		QTQ = np.dot(np.transpose(self.Q),self.Q)
 		print("\nQ^T Q = ",QTQ[0,:])
@@ -136,7 +136,7 @@ class QR_Decomposition:
 		dims = [self.m,self.m,self.n,self.m]
 		widths = [6,6,6,9]
 
-		np.set_printoptions(formatter={'complexfloat':lambda x:('{:>7.5f}{:>+7.5f}i'.format(x.real,x.imag) if (x.real != 0.0 and x.imag != 0.0) else ('    {:>7.5f}    '.format(x.real) if x.imag == 0.0 else'     {:>7.5f}i   '.format(x.imag)))})
+		np.set_printoptions(formatter={'complexfloat':lambda x:('{:>10.8f}{:>+10.8f}i'.format(x.real,x.imag) if (x.real != 0.0 and x.imag != 0.0) else ('    {:>10.8f}    '.format(x.real) if x.imag == 0.0 else'     {:>10.8f}i   '.format(x.imag)))})
 
 		for n in range(len(names)):
 			print("\n", names[n]," = ",matrices[n][0,:])
