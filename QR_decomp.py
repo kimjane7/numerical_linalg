@@ -2,15 +2,6 @@ import numpy as np
 from numpy import array, dot, diag, reshape, transpose, linalg
 from scipy.linalg import eigvalsh, expm
 
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-import os
-import sys
-from pylab import *
-matplotlib.rcParams['font.family'] = "serif"
-from matplotlib import ticker
-from matplotlib.ticker import ScalarFormatter
-
 class QR_Decomposition:
 
 
@@ -119,7 +110,7 @@ class QR_Decomposition:
 			print("Q is not orthogonal (tolerance = ", tolerance, ")")
 
 
-	def compare(self,filename):
+	def compare(self):
 
 		print("\nClassical Gram-Schmidt Method:")
 		self.classical_GramSchmidt()
