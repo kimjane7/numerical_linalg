@@ -3,7 +3,7 @@ import numpy as np
 
 def main():
 
-	Z = np.array([[12,-51,4],[6,167,-68],[-4,24,-41]],dtype=complex)
+	Z = np.array([[1,2,3],[4,5,6],[7,8,7],[4,2,3],[4,2,2]],dtype=complex)
 	QR_Z = QR_Decomposition(Z)
 	QR_Z.compare("case1")
 

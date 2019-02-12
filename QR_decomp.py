@@ -22,7 +22,7 @@ class QR_Decomposition:
 
 	def classical_GramSchmidt(self):
 
-		self.Q = np.zeros((self.n,self.n),dtype=complex)
+		self.Q = np.zeros((self.m,self.n),dtype=complex)
 		self.R = np.zeros((self.n,self.n),dtype=complex)
 
 		for j in range(0,self.n):
@@ -121,14 +121,17 @@ class QR_Decomposition:
 
 	def compare(self,filename):
 
+		print("\nClassical Gram-Schmidt Method:")
 		self.classical_GramSchmidt()
 		self.display_result()
 		self.check_Q_orthogonal(1E-10)
 
+		print("\nModified Gram-Schmidt Method:")
 		self.modified_GramSchmidt()
 		self.display_result()
 		self.check_Q_orthogonal(1E-10)
 
+		print("\nHouseholder Transform Based Method:")
 		self.Householder()
 		self.display_result()
 		self.check_Q_orthogonal(1E-10)
