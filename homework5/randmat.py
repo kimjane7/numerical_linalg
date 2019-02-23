@@ -4,15 +4,13 @@ from scipy.linalg import svdvals
 
 class RandomMatrix:
 
-	def __init__(self, m, triangular=False):
+	def __init__(self, m, k=0):
 
-		self.m = m
+		self.m = m 			# dimension of matrix
+		self.k = k 			# kth diagonal	
 
 		# construct random matrix
-		if triangular: 
-			self.A = np.triu(np.random.randn(m,m)/np.sqrt(m))
-		else:
-			self.A = np.random.randn(m,m)/np.sqrt(m)
+		self.A = np.triu(np.random.randn(m,m)/np.sqrt(m),self.k)
 
 		# get eigenvalues, norm, spectral radius, and smallest singular value
 		self.eigvals = np.linalg.eigvals(self.A)
