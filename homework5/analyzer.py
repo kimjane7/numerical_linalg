@@ -48,35 +48,64 @@ class Analyzer:
 		tri_eig_real.reshape(-1)
 		tri_eig_imag.reshape(-1)
 
-		return full_eig_real, full_eig_imag, part_eig_real, part_eig_imag, tri_eig_real, tri_eig_imag
+		# store average spectral radius for each batch of samples
+		full_rho = [full_randmats[i].rho for i in range(N)]
+		part_rho = [part_randmats[i].rho for i in range(N)]
+		tri_rho = [tri_randmats[i].rho for i in range(N)]
+		full_rho_avg = np.mean(full_rho)
+		part_rho_avg = np.mean(part_rho)
+		tri_rho_avg = np.mean(tri_rho)
+
+		'''
+		# store average spectral radius for each batch of samples
+		full_norm = [full_randmats[i].norm for i in range(N)]
+		part_norm = [part_randmats[i].norm for i in range(N)]
+		tri_norm = [tri_randmats[i].norm for i in range(N)]
+		full_norm_avg = np.mean(full_norm)
+		part_norm_avg = np.mean(part_norm)
+		tri_norm_avg = np.mean(tri_norm)
+		'''
+
+		return full_eig_real, full_eig_imag, part_eig_real, part_eig_imag, tri_eig_real, tri_eig_imag, \
+			   full_rho_avg, part_rho_avg, tri_rho_avg
 
 
 
 	def plot_eigenvalues(self, N):
 
+		M = len(self.m_list)
+
 		# get colors for each m
-		colors = cm.rainbow(np.linspace(0.0, 1.0, len(self.m_list)))
+		colors = cm.rainbow(np.linspace(0.0, 1.0, M))
 
 		# make plot
 		w = 3
-		plt.figure(figsize=(w*len(self.m_list),w*3))
-		xymin, xymax = -1.5, 1.5
+		plt.figure(figsize=(w*M,w*3))
+		xymin, xymax = -1.4, 1.4
 
 		# overlay eigenvalues for various m
 		for m in self.m_list:
 
+			# get index of m
+			m_idx = self.m_list.index(m)
+
 			# take N samples eigenvalues of mxm full, partially triangular, and triangular random matrices
 			eigvals = self.sample_eigvals(m,N)
+			avg_rhos = eigvals[-3:]
 
-			# superimpose eigenvalues N samples
-			for i in range(0, 6, 2):
-				subplot = plt.subplot(len(self.m_list), 3, )
-				subplot.scatter(eigvals[i], eigvals[i+1], c=colors[self.m_list.index(m)], marker='o', edgecolor='none', alpha=0.5)
+			# superimpose eigenvalues N samples and spectral radii
+			for i in range(3):
+				subplot = plt.subplot(3, M, M*i+m_idx+1)
+				subplot.set_xticklabels([])
+				subplot.set_yticklabels([])
 				subplot.set_xlim([xymin,xymax])
 				subplot.set_ylim([xymin,xymax])
+				subplot.scatter(eigvals[2*i], eigvals[2*i+1], c=colors[m_idx], marker='o', edgecolor='none', alpha=0.5)
+				
+				rho = plt.Circle((0,0), avg_rhos[i], edgecolor='k', fill=False, linewidth=1.0)
+				subplot.add_patch(rho)
 
-		
-
+		plt.tight_layout()
 		plt.show()
 			
 
