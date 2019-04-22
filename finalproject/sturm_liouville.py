@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 from numpy import linalg
-from scipy.linalg import expm, eigvals
+from scipy.linalg import expm, eigvals, qr
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -11,24 +11,25 @@ matplotlib.rcParams['font.family'] = "serif"
 
 class SL_Solver:
 
-	def __init__(self, N, jmax, p, q):
+	def __init__(self, N, p, q):
 
 		self.p = p
 		self.q = q
 		self.N = N
 		self.h = np.pi/N
+		self.tol = 1E-15
 
-		self.x = np.zeros(N+1)                        # grid points
-		self.u_exact = np.zeros((N+1,jmax))            # exact eigenvectors
-		self.lambda_exact = np.zeros(jmax)            # exact eigenvalues
-		self.lambdah_hat = np.zeros(jmax)             # A scheme eigenvalues
-		self.lambdah = np.zeros(jmax)                 # B scheme eigenvalues
+		self.x = np.zeros(N+1)                     # grid points
+		self.u_exact = np.zeros((N+1,N))           # exact eigenvectors
+		self.lambda_exact = np.zeros(N)            # exact eigenvalues
+		self.lambdah_hat = np.zeros(N)             # A scheme eigenvalues
+		self.lambdah = np.zeros(N)                 # B scheme eigenvalues
 
 		for i in range(N+1):
 
 			self.x[i] = i*self.h
 
-			for j in range(jmax):
+			for j in range(N):
 
 				kh = 2.0*(1.0-np.cos((j+0.5)*self.h))/(self.h**2)
 				mh = (2.0+np.cos((j+0.5)*self.h))/3.0
@@ -39,12 +40,84 @@ class SL_Solver:
 				self.lambdah_hat[j] = self.p*kh+q
 
 
-	def schemeA(self, V0, method, kmax, mu = 0.0):
+	def inversepower(self, A):
 
-		tolerance = 1E-12
+		# store eigenvectors and eigenvalues for each iteration
+		kmax = 1000
+		Lambda = np.zeros(kmax)
+		V = np.zeros((self.N,kmax))
 
-		# identity
+		# initial guess
+		Lambda[0] = 0.0
+		V0 = np.ones(self.N)
+		V[:,0] = V0/np.linalg.norm(V0)
+		Lambda_diff = 10.0
+		k = 1
+
+		while (Lambda_diff > self.tol) and (k < kmax):
+			W = np.linalg.solve(A,V[:,k-1])
+			V[:,k] = W/np.linalg.norm(W)
+			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
+			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
+			k += 1
+
+		print(k)
+
+		return Lambda[k-1]
+
+
+	def shiftedpower(self, A):
+
+		# store eigenvectors and eigenvalues for each iteration
+		kmax = 500000
+		Lambda = np.zeros(kmax)
+		V = np.zeros((self.N,kmax))
 		I = np.eye(self.N)
+
+		'''
+		# use power method to find largest eigenvalue
+		Lambda[0] = 0.0
+		V0 = np.ones(self.N)
+		V[:,0] = V0/np.linalg.norm(V0)
+		Lambda_diff = 10.0
+		k = 1
+
+		while (Lambda_diff > self.tol) and (k < kmax):
+			W = np.dot(A,V[:,k-1])
+			V[:,k] = W/np.linalg.norm(W)
+			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
+			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
+			k += 1
+
+		print("k = ", k)
+		print("largest eigval = ", self.p*Lambda[k-1]/(self.h**2)+self.q)
+
+		'''
+
+		# shift by largest eigenvalue
+		#mu = Lambda[k-1]
+		mu = self.lambda_exact[-1]
+		V0 = np.ones(self.N)
+		V[:,0] = V0/np.linalg.norm(V0)
+		Lambda_diff = 10.0
+		k = 1
+		while (Lambda_diff > self.tol) and (k < kmax):
+			W = np.dot(A-mu*I,V[:,k-1])
+			V[:,k] = W/np.linalg.norm(W)
+			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
+			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
+			k += 1
+
+		print("smallest eigval = ", self.p*Lambda[k-1]/(self.h**2)+self.q)
+		print("k = ", k)
+
+		return Lambda[k-1]
+
+
+	def schemeA(self, method):
+
+
+		Lambda = 0.0
 
 		# form scheme A matrix
 		A = np.zeros((self.N,self.N))
@@ -57,44 +130,44 @@ class SL_Solver:
 				A[i,i-1] = -1.0
 				A[i,i+1] = -1.0
 
-		# store eigenvectors and eigenvalues for each iteration
-		Lambda = np.zeros(kmax)
-		V = np.zeros((self.N,kmax))
 
-		# normalize initial guess of eigenvector
-		V[:,0] = V0/np.linalg.norm(V0)
 
-		# initial estimate for associated eigenvalue
-		Lambda[0] = 0.0
-		Lambda[-1] = 100.0
-		k = 0
-
-		# find the eigenvalue of A that is closest to mu
+		# find the smallest eigenvalue of A
 		if method == 'inverse power':
-			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
-				W = np.dot(np.linalg.inv(A-mu*I),V[:,k-1])
-				V[:,k] = W/np.linalg.norm(W)
-				Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
-				k += 1
+			Lambda = self.inversepower(A)
 
-		# find the eigenvalue of A that is furthest from mu
+		# find the smallest eigenvalue of A
 		if method == 'shifted power':
-			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
-				W = np.dot(A-mu*I,V[:,k-1])
-				V[:,k] = W/np.linalg.norm(W)
-				Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
-				k += 1
+			Lambda = self.shiftedpower(A)
 
-		# find all eigenvalues of A using QR iteration with deflation and Wilkinson shift
+
+
+
+		# find all eigenvalues of A using QR iteration with deflation and shifts
 		if method == 'QR':
 			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
-				mu = wilkinson
+				print(k)
+				print(A)
+				# shifted QR
+				Q,R = np.linalg.qr(A-mu*I)
+				A = np.dot(R,Q)+mu*I
 
-		print(k)
+				# zero out small lower diagonal elements
+				for i in range(1,self.N):
+					if abs(A[i,i-1]) < tolerance:
+						A[i,i-1] = 0.0
+						print(i)
 
+				# pick new shift
+				Lambda[k] = A[self.N-1,self.N-1]
+				mu = Lambda[k]
+				print("mu = ",mu)
+				k += 1
 
-		self.schemeA_eigvals = self.p*Lambda[k]/(self.h**2)+self.q
-		#self.plot_eigvec(V[:,kmax-1])
+	
+		print(self.N)
+		self.schemeA_eigval = self.p*Lambda/(self.h**2)+self.q
+		print(self.schemeA_eigval)
 
 
 	def plot_eigvec(self, V):

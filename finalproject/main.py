@@ -19,24 +19,21 @@ def plot_convergence(p, q):
 	eigval_diff = np.zeros(len(h))
 	x = np.pi/np.array([2**n for n in range(2,12)])
 
-	plt.figure(figsize=(8,6))
-
-	# loop through methods used to compute smallest eigenvalue in scheme A
 	method = ['inverse power', 'shifted power', 'QR']
+	nametag = ['inverse', 'shifted', 'QR']
 	color = ['blue', 'red', 'green']
 	size = [12,9,6]
 	linewidth = [3,2,1]
-	for index in range(2):
+
+	for index in range(1):
+
+		plt.figure(figsize=(8,6))
 
 		# loop through step sizes
 		for i in range(len(h)):
-			
-			V0 = np.ones(N[i])
-			solver = SL_Solver(N[i],1,p,q)
-			mu = [0.0,1000.0,50.0]
-			solver.schemeA(V0,method[index],100,mu[index])
-
-			eigval_diff[i] = abs(solver.lambda_exact-solver.lambdah_hat)
+			solver = SL_Solver(N[i],p,q)
+			solver.schemeA(method[index])
+			eigval_diff[i] = abs(solver.lambda_exact[0]-solver.schemeA_eigval)
 
 		# linear regression
 		linreg = linregress(np.log(h),np.log(eigval_diff))
@@ -48,15 +45,15 @@ def plot_convergence(p, q):
 		plt.loglog(x,np.exp(b)*x**m,c=color[index],lw=linewidth[index],label=r'linear regression (y = '+str(round(m,5))+'x'+str(round(b,5))+')')
 
 
-	plt.title(r'Convergence of smallest eigenvalue in scheme A')
-	plt.xlabel(r'$\log(h)$')
-	plt.ylabel(r'$\log | \lambda_0-\hat{\lambda}_0^h |$')
-	plt.legend(loc='upper center', shadow=True, fontsize=12)		
+		plt.title(r'Convergence of smallest eigenvalue in scheme A')
+		plt.xlabel(r'$h$')
+		plt.ylabel(r'$| \lambda_0-\hat{\lambda}_0^h |$')
+		plt.legend(loc='upper center', shadow=True, fontsize=12)		
 
-	figname = 'convergence_schemeA.png'
-	plt.savefig(figname, format='png')
-	os.system('okular '+figname)
-	plt.clf()
+		figname = 'convergence_schemeA_'+nametag[index]+'.png'
+		plt.savefig(figname, format='png')
+		os.system('okular '+figname)
+		plt.clf()
 
 
 
