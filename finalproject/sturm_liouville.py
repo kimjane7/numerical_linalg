@@ -39,11 +39,9 @@ class SL_Solver:
 				self.lambdah_hat[j] = self.p*kh+q
 
 
+	def schemeA(self, V0, method, kmax, mu = 0.0):
 
-
-	# inverse power method - Algorithm 27.2
-	# solve AV=LambdaV
-	def schemeA(self, V0, mu, kmax):
+		tolerance = 1E-12
 
 		# identity
 		I = np.eye(self.N)
@@ -68,15 +66,34 @@ class SL_Solver:
 
 		# initial estimate for associated eigenvalue
 		Lambda[0] = 0.0
+		Lambda[-1] = 100.0
+		k = 0
 
 		# find the eigenvalue of A that is closest to mu
-		for k in range(1,kmax):
+		if method == 'inverse power':
+			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
+				W = np.dot(np.linalg.inv(A-mu*I),V[:,k-1])
+				V[:,k] = W/np.linalg.norm(W)
+				Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
+				k += 1
 
-			W = np.linalg.solve(A-mu*I,V[:,k-1])
-			V[:,k] = W/np.linalg.norm(W)
-			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])		
+		# find the eigenvalue of A that is furthest from mu
+		if method == 'shifted power':
+			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
+				W = np.dot(A-mu*I,V[:,k-1])
+				V[:,k] = W/np.linalg.norm(W)
+				Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
+				k += 1
 
-		self.schemeA_eigvals = self.p*Lambda[kmax-1]/(self.h**2)+self.q
+		# find all eigenvalues of A using QR iteration with deflation and Wilkinson shift
+		if method == 'QR':
+			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
+				mu = wilkinson
+
+		print(k)
+
+
+		self.schemeA_eigvals = self.p*Lambda[k]/(self.h**2)+self.q
 		#self.plot_eigvec(V[:,kmax-1])
 
 

@@ -4,42 +4,56 @@ from sturm_liouville import SL_Solver
 import numpy as np
 from numpy import linalg
 from scipy.linalg import expm, eigvals
+from scipy.stats import linregress
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 matplotlib.rcParams['font.family'] = "serif"
 
 
-def plot_convergence(N_list, jmax, p, q):
 
-	N = np.array(N_list)
+def plot_convergence(p, q):
+
+	N = np.array([2**n for n in range(4,10)])
 	h = np.pi/N
-	lambdah_hat_diff = np.zeros((len(h),jmax))
-	lambdah_diff = np.zeros((len(h),jmax))
-	schemeA_diff = np.zeros((len(h),jmax))
-
-	for i in range(len(h)):
-		
-		V0 = np.ones(N_list[i])
-		solver = SL_Solver(N_list[i],jmax,p,q)
-		solver.schemeA(V0,0.0,100)
-
-		lambdah_hat_diff[i,:] = abs(solver.lambdah_hat-solver.lambda_exact)
-		lambdah_diff[i,:] = abs(solver.lambdah-solver.lambda_exact)
-		schemeA_diff[i,:] = abs(solver.schemeA_eigvals-solver.lambda_exact)
-
+	eigval_diff = np.zeros(len(h))
+	x = np.pi/np.array([2**n for n in range(2,12)])
 
 	plt.figure(figsize=(8,6))
 
-	for j in range(jmax):
+	# loop through methods used to compute smallest eigenvalue in scheme A
+	method = ['inverse power', 'shifted power', 'QR']
+	color = ['blue', 'red', 'green']
+	size = [12,9,6]
+	linewidth = [3,2,1]
+	for index in range(2):
 
-		plt.loglog(h,lambdah_hat_diff[:,j],color='red',lw=3)
-		plt.loglog(h,lambdah_diff[:,j],color='green')
-	
-	plt.loglog(h,schemeA_diff[:,0],color='blue')
-	
+		# loop through step sizes
+		for i in range(len(h)):
+			
+			V0 = np.ones(N[i])
+			solver = SL_Solver(N[i],1,p,q)
+			mu = [0.0,1000.0,50.0]
+			solver.schemeA(V0,method[index],100,mu[index])
 
-	figname = 'convergence.png'
+			eigval_diff[i] = abs(solver.lambda_exact-solver.lambdah_hat)
+
+		# linear regression
+		linreg = linregress(np.log(h),np.log(eigval_diff))
+		m = linreg[0]
+		b = linreg[1]
+
+		# plot
+		plt.loglog(h,eigval_diff,c=color[index],marker='o',markersize=size[index], markeredgewidth=0, lw=0,label=method[index]+' method')
+		plt.loglog(x,np.exp(b)*x**m,c=color[index],lw=linewidth[index],label=r'linear regression (y = '+str(round(m,5))+'x'+str(round(b,5))+')')
+
+
+	plt.title(r'Convergence of smallest eigenvalue in scheme A')
+	plt.xlabel(r'$\log(h)$')
+	plt.ylabel(r'$\log | \lambda_0-\hat{\lambda}_0^h |$')
+	plt.legend(loc='upper center', shadow=True, fontsize=12)		
+
+	figname = 'convergence_schemeA.png'
 	plt.savefig(figname, format='png')
 	os.system('okular '+figname)
 	plt.clf()
@@ -49,17 +63,8 @@ def plot_convergence(N_list, jmax, p, q):
 
 def main():
 
-	N_list = [2**n for n in range(4,10)]
-	plot_convergence(N_list,5,1.0,5.0)
-
-	'''
-	solver = SL_Solver(100,5,1.0,5.0)
-
-	V0 = np.ones(100)
-	mu = 0.0
-	kmax = 1000
-	solver.schemeA(V0,mu,kmax)
-	'''
+	
+	plot_convergence(1.0,5.0)
 
 
 main()
