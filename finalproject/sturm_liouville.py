@@ -11,13 +11,13 @@ matplotlib.rcParams['font.family'] = "serif"
 
 class SL_Solver:
 
-	def __init__(self, N, p, q):
+	def __init__(self, N, p, q, tolerance):
 
 		self.p = p
 		self.q = q
 		self.N = N
 		self.h = np.pi/N
-		self.tol = 1E-15
+		self.tol = tolerance
 
 		self.x = np.zeros(N+1)                     # grid points
 		self.u_exact = np.zeros((N+1,N))           # exact eigenvectors
@@ -42,86 +42,94 @@ class SL_Solver:
 
 	def inversepower(self, A):
 
-		# store eigenvectors and eigenvalues for each iteration
-		kmax = 1000
-		Lambda = np.zeros(kmax)
-		V = np.zeros((self.N,kmax))
-
 		# initial guess
-		Lambda[0] = 0.0
-		V0 = np.ones(self.N)
-		V[:,0] = V0/np.linalg.norm(V0)
-		Lambda_diff = 10.0
-		k = 1
+		V_old = np.ones(self.N)
+		V_old = V_old/np.linalg.norm(V_old)
+		Lambda_old = 0.0
+		Lambda_diff = 1.0
 
-		while (Lambda_diff > self.tol) and (k < kmax):
-			W = np.linalg.solve(A,V[:,k-1])
-			V[:,k] = W/np.linalg.norm(W)
-			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
-			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
-			k += 1
+		# iteration
+		count = 0
+		while Lambda_diff > self.tol:
 
-		print(k)
+			V_new = np.linalg.solve(A,V_old)
+			V_new = V_new/np.linalg.norm(V_new)
+			Lambda_new = np.dot(np.dot(np.transpose(V_new),A),V_new)
+			Lambda_diff = abs(Lambda_new-Lambda_old)
 
-		return Lambda[k-1]
+			V_old = V_new
+			Lambda_old = Lambda_new
+			count += 1
+
+		print("{:<d} {:<d} {:<f}\n".format(self.N, count, self.p*Lambda_new/(self.h**2)+self.q))
+
+		return Lambda_new
 
 
 	def shiftedpower(self, A):
 
-		# store eigenvectors and eigenvalues for each iteration
-		kmax = 500000
-		Lambda = np.zeros(kmax)
-		V = np.zeros((self.N,kmax))
+		mu = A[0,0]+1E-3
+
+		'''
+		n = np.log2(self.N)
+		mu = A[0,0]+5**(-n)
+		'''
+
 		I = np.eye(self.N)
+		B = A-mu*I
 
-		'''
-		# use power method to find largest eigenvalue
-		Lambda[0] = 0.0
-		V0 = np.ones(self.N)
-		V[:,0] = V0/np.linalg.norm(V0)
-		Lambda_diff = 10.0
-		k = 1
+		V_old = np.ones(self.N)
+		V_old = V_old/np.linalg.norm(V_old)
+		Lambda_old = 0.0
+		Lambda_diff = 1.0
+		
+		# iteration
+		count = 0
+		while Lambda_diff > self.tol:
 
-		while (Lambda_diff > self.tol) and (k < kmax):
-			W = np.dot(A,V[:,k-1])
-			V[:,k] = W/np.linalg.norm(W)
-			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
-			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
-			k += 1
+			V_new = np.dot(B,V_old)
+			V_new = V_new/np.linalg.norm(V_new,2)
+			Lambda_new = np.dot(np.dot(np.transpose(V_new),A),V_new)
+			Lambda_diff = abs(Lambda_new-Lambda_old)
+			
+			V_old = V_new
+			Lambda_old = Lambda_new
+			count += 1
 
-		print("k = ", k)
-		print("largest eigval = ", self.p*Lambda[k-1]/(self.h**2)+self.q)
+		print("{:<d} {:<d} {:<f} {:<f}\n".format(self.N, count, self.p*Lambda_new/(self.h**2)+self.q, mu))
 
-		'''
+		return Lambda_new
 
-		# shift by largest eigenvalue
-		#mu = Lambda[k-1]
-		mu = self.lambda_exact[-1]
-		V0 = np.ones(self.N)
-		V[:,0] = V0/np.linalg.norm(V0)
-		Lambda_diff = 10.0
-		k = 1
-		while (Lambda_diff > self.tol) and (k < kmax):
-			W = np.dot(A-mu*I,V[:,k-1])
-			V[:,k] = W/np.linalg.norm(W)
-			Lambda[k] = np.dot(np.dot(np.transpose(V[:,k]),A),V[:,k])
-			Lambda_diff = abs(Lambda[k]-Lambda[k-1])
-			k += 1
 
-		print("smallest eigval = ", self.p*Lambda[k-1]/(self.h**2)+self.q)
-		print("k = ", k)
+	def qr_deflation(self, A):
 
-		return Lambda[k-1]
+		count = 0
+
+		while abs(A[1,0]) > self.tol:
+
+			Q,R = np.linalg.qr(A)
+			A = np.dot(R,Q)
+			count += 1
+
+		for i in range(1,self.N):
+			if abs(A[i,i-1]) < self.tol:
+				A[i,i-1] = 0.0
+
+
+		print(count)
+		print(A)
+
+		return 0
+
+
 
 
 	def schemeA(self, method):
-
 
 		Lambda = 0.0
 
 		# form scheme A matrix
 		A = np.zeros((self.N,self.N))
-
 		A[0,1] = -1.0
 		A[self.N-1,self.N-2] = -2.0
 		for i in range(self.N):
@@ -130,44 +138,17 @@ class SL_Solver:
 				A[i,i-1] = -1.0
 				A[i,i+1] = -1.0
 
-
-
-		# find the smallest eigenvalue of A
+		# choose method
 		if method == 'inverse power':
 			Lambda = self.inversepower(A)
 
-		# find the smallest eigenvalue of A
 		if method == 'shifted power':
 			Lambda = self.shiftedpower(A)
 
-
-
-
-		# find all eigenvalues of A using QR iteration with deflation and shifts
 		if method == 'QR':
-			while (abs(Lambda[k]-Lambda[k-1]) > tolerance) and (k < kmax):
-				print(k)
-				print(A)
-				# shifted QR
-				Q,R = np.linalg.qr(A-mu*I)
-				A = np.dot(R,Q)+mu*I
+			Lambda = self.qr_deflation(A)
 
-				# zero out small lower diagonal elements
-				for i in range(1,self.N):
-					if abs(A[i,i-1]) < tolerance:
-						A[i,i-1] = 0.0
-						print(i)
-
-				# pick new shift
-				Lambda[k] = A[self.N-1,self.N-1]
-				mu = Lambda[k]
-				print("mu = ",mu)
-				k += 1
-
-	
-		print(self.N)
 		self.schemeA_eigval = self.p*Lambda/(self.h**2)+self.q
-		print(self.schemeA_eigval)
 
 
 	def plot_eigvec(self, V):
