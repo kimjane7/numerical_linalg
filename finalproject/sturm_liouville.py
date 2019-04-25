@@ -61,23 +61,17 @@ class SL_Solver:
 			Lambda_old = Lambda_new
 			count += 1
 
-		print("{:<d} {:<d} {:<f}\n".format(self.N, count, self.p*Lambda_new/(self.h**2)+self.q))
-
-		return Lambda_new
+		return Lambda_new, count
 
 
 	def shiftedpower(self, A):
 
+		# shift
 		mu = A[0,0]+1E-3
-
-		'''
-		n = np.log2(self.N)
-		mu = A[0,0]+5**(-n)
-		'''
-
 		I = np.eye(self.N)
 		B = A-mu*I
 
+		# initial guess
 		V_old = np.ones(self.N)
 		V_old = V_old/np.linalg.norm(V_old)
 		Lambda_old = 0.0
@@ -96,32 +90,34 @@ class SL_Solver:
 			Lambda_old = Lambda_new
 			count += 1
 
-		print("{:<d} {:<d} {:<f} {:<f}\n".format(self.N, count, self.p*Lambda_new/(self.h**2)+self.q, mu))
 
-		return Lambda_new
+		return Lambda_new, count
 
 
 	def qr_deflation(self, A):
 
+		all_eigvals = np.zeros(self.N)
+		B = A.copy()
+		I = np.eye(self.N)
+
 		count = 0
+		for n in range(self.N-1,0,-1):
 
-		while abs(A[1,0]) > self.tol:
+			while abs(B[n,n-1]) > self.tol:
 
-			Q,R = np.linalg.qr(A)
-			A = np.dot(R,Q)
-			count += 1
+				Q,R = self.qr(B)
+				B = np.dot(R,Q) 
+				count += 1
 
-		for i in range(1,self.N):
-			if abs(A[i,i-1]) < self.tol:
-				A[i,i-1] = 0.0
+			all_eigvals[n] = B[n,n]
+			B = B[:n,:n]
+			I = np.eye(n)
 
-
-		print(count)
-		print(A)
-
-		return 0
+		all_eigvals[0] = B[0,0]
+		all_eigvals = np.sort(all_eigvals)
 
 
+		return all_eigvals[0], count
 
 
 	def schemeA(self, method):
@@ -140,35 +136,81 @@ class SL_Solver:
 
 		# choose method
 		if method == 'inverse power':
-			Lambda = self.inversepower(A)
+			Lambda, count = self.inversepower(A)
 
 		if method == 'shifted power':
-			Lambda = self.shiftedpower(A)
+			Lambda, count = self.shiftedpower(A)
 
 		if method == 'QR':
-			Lambda = self.qr_deflation(A)
+			Lambda, count = self.qr_deflation(A)
 
 		self.schemeA_eigval = self.p*Lambda/(self.h**2)+self.q
 
-
-	def plot_eigvec(self, V):
-
-		# enforce boundary condition at 0
-		if (V.size == self.N):
-			V = np.concatenate([[0.0],V], axis=None)
-
-		plt.figure(figsize=(8,6))
-		plt.plot(self.x, 6*V,color='blue')
-		plt.plot(self.x, self.u_exact[:,0],color='red')
-
-		figname = 'plot.png'
-		plt.savefig(figname, format='png')
-		os.system('okular '+figname)
-		plt.clf()
+		print("{:^10d}{:^20d}{:^20f}\n".format(self.N, count, self.schemeA_eigval))
 
 
 
 
+	def schemeB(self, method):
+
+		Lambda = 0.0
+
+		# form scheme B matrices
+		A = np.zeros((self.N,self.N))
+		A[0,1] = -1.0
+		A[self.N-1,self.N-2] = -2.0
+		for i in range(self.N):
+			A[i,i] = 2.0
+			if (0 < i < self.N-1):
+				A[i,i-1] = -1.0
+				A[i,i+1] = -1.0
+
+		B = np.zeros((self.N,self.N))
+		B[0,1] = 1.0
+		B[self.N-1,self.N-2] = 2.0
+		for i in range(self.N):
+			B[i,i] = 4.0
+			if (0 < i < self.N-1):
+				B[i,i-1] = 1.0
+				B[i,i+1] = 1.0
+
+		# get QR decomposition of B
+		Q,R = self.qr(B)
+		QT = np.transpose(Q)
+		Rinv = np.linalg.inv(R)
+		QAR = np.dot(QT,np.dot(A,Rinv))
+
+		# choose method
+		if method == 'inverse power':
+			Lambda, count = self.inversepower(QAR)
+
+		if method == 'shifted power':
+			Lambda, count = self.shiftedpower(QAR)
+
+		if method == 'QR':
+			Lambda, count = self.qr_deflation(QAR)
+
+		self.schemeB_eigval = 6.0*self.p*Lambda/(self.h**2)+self.q
+
+		print("{:^10d}{:^20d}{:^20f}\n".format(self.N, count, self.schemeB_eigval))
 
 
+	def qr(self, A):
 
+		m = A.shape[0]
+		Q = np.zeros_like(A)
+		R = np.zeros_like(A)
+		V = A.copy()
+
+		for i in range(m):
+
+			R[i,i] = np.linalg.norm(V[:,i])
+
+			if R[i,i] > self.tol:
+				Q[:,i] = V[:,i]/R[i,i]
+
+			for j in range(i+1,m):
+				R[i,j] = np.vdot(Q[:,i],V[:,j])
+				V[:,j] -= R[i,j]*Q[:,i]
+
+		return Q, R
